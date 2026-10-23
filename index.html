@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wien → Brünn · Tourwetter</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#0e1726;color:#f4f7fc}*{box-sizing:border-box}body{margin:0;padding:clamp(16px,4vw,35px);max-width:1100px;margin:auto}h1{font-size:clamp(1.8rem,5vw,3rem);margin:0 0 5px}h2{margin:0 0 12px}p{line-height:1.5}.sub,.muted,footer{color:#aebfd1}.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:22px 0}button{background:#70ddc7;color:#0b1d22;border:0;border-radius:12px;padding:12px 17px;font-weight:750;cursor:pointer}button:disabled{opacity:.55;cursor:wait}#status{font-size:.93rem}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:18px}.card{background:#1a293c;border:1px solid #35475f;border-radius:20px;padding:22px}.temp{font-size:3rem;font-weight:750}.current{padding-bottom:16px;border-bottom:1px solid #35475f}.day{padding-top:16px}.day+.day{margin-top:16px;border-top:1px solid #35475f}.day-title{font-weight:750}.metrics{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.metric{border-radius:9px;background:#293c52;padding:8px 10px;font-size:.85rem}.notice{background:#293c52;border-radius:10px;padding:12px;margin-top:12px;color:#d5e1ed}footer{margin-top:25px;font-size:.8rem}a{color:#70ddc7}
+</style>
+</head>
+<body>
+<header><h1>🚲 Wien → Brünn</h1><p class="sub">Wetter für die Radtour · 4.–5. November 2026</p></header>
+<div class="toolbar"><button id="refresh" type="button">↻ Wetter aktualisieren</button><span id="status" role="status" aria-live="polite">Lade Wetterdaten …</span></div>
+<main class="grid" id="cards"></main>
+<footer>Daten: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a> · Aktualisierung alle 15 Minuten · Uhrzeiten in Wien/Brünn (Europe/Vienna). Wetterprognosen sind nur bis zu 16 Tage im Voraus verfügbar.</footer>
+<script>
+'use strict';
+const cities=[{name:'Wien',lat:48.2082,lon:16.3738},{name:'Brünn',lat:49.1951,lon:16.6068}];
+const dates=['2026-11-04','2026-11-05'];
+const labels={0:'Klar',1:'Überwiegend klar',2:'Teilweise bewölkt',3:'Bewölkt',45:'Nebel',48:'Reifnebel',51:'Leichter Nieselregen',53:'Nieselregen',55:'Starker Nieselregen',56:'Gefrierender Nieselregen',57:'Starker gefrierender Nieselregen',61:'Leichter Regen',63:'Regen',65:'Starker Regen',66:'Gefrierender Regen',67:'Starker gefrierender Regen',71:'Leichter Schneefall',73:'Schneefall',75:'Starker Schneefall',77:'Schneegriesel',80:'Leichte Regenschauer',81:'Regenschauer',82:'Starke Regenschauer',85:'Schneeschauer',86:'Starke Schneeschauer',95:'Gewitter',96:'Gewitter mit Hagel',99:'Starkes Gewitter mit Hagel'};
+const cards=document.getElementById('cards'),status=document.getElementById('status'),refresh=document.getElementById('refresh');
+const fmt=(n,digits=0)=>n==null||!Number.isFinite(Number(n))?'–':new Intl.NumberFormat('de-AT',{maximumFractionDigits:digits,minimumFractionDigits:digits}).format(Number(n));
+const weather=c=>labels[c]??'Wetter nicht angegeben';
+const title=date=>new Intl.DateTimeFormat('de-AT',{weekday:'long',day:'numeric',month:'long',timeZone:'UTC'}).format(new Date(date+'T12:00:00Z'));
+const metric=(name,value)=>'<span class="metric">'+name+': '+value+'</span>';
+function render(city,data){
+ const c=data.current||{},d=data.daily||{};
+ const days=dates.map(date=>{
+  const i=(d.time||[]).indexOf(date);
+  if(i<0)return '<section class="day"><div class="day-title">'+title(date)+'</div><div class="notice">Noch keine Tagesprognose verfügbar. Open-Meteo bietet maximal 16 Tage Vorhersage.</div></section>';
+  return '<section class="day"><div class="day-title">'+title(date)+'</div><p>'+weather(d.weather_code?.[i])+' · '+fmt(d.temperature_2m_min?.[i])+' bis '+fmt(d.temperature_2m_max?.[i])+' °C</p><div class="metrics">'+metric('Niederschlag',fmt(d.precipitation_sum?.[i],1)+' mm')+metric('Niederschlagsrisiko',fmt(d.precipitation_probability_max?.[i])+' %')+metric('Wind max.',fmt(d.wind_speed_10m_max?.[i])+' km/h')+'</div></section>';
+ }).join('');
+ return '<article class="card"><h2>'+city.name+'</h2><div class="current"><div class="temp">'+fmt(c.temperature_2m,1)+' °C</div><p>'+weather(c.weather_code)+'</p><div class="metrics">'+metric('Gefühlt',fmt(c.apparent_temperature,1)+' °C')+metric('Wind',fmt(c.wind_speed_10m)+' km/h')+metric('Feuchte',fmt(c.relative_humidity_2m)+' %')+'</div></div>'+days+'</article>';
+}
+async function get(city){
+ const url=new URL('https://api.open-meteo.com/v1/forecast');
+ const params={latitude:city.lat,longitude:city.lon,current:'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m',daily:'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max',timezone:'Europe/Vienna',forecast_days:'16'};
+ Object.entries(params).forEach(([key,value])=>url.searchParams.set(key,String(value)));
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
+ try{const response=await fetch(url,{signal:controller.signal,cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);const data=await response.json();if(data.error)throw Error(data.reason||'API-Fehler');return data;}finally{clearTimeout(timeout);}
+}
+async function load(){
+ refresh.disabled=true;status.textContent='Wetterdaten werden geladen …';
+ try{
+  const results=await Promise.allSettled(cities.map(get));
+  cards.innerHTML=results.map((r,i)=>r.status==='fulfilled'?render(cities[i],r.value):'<article class="card"><h2>'+cities[i].name+'</h2><p>Live-Daten konnten nicht geladen werden.</p><p class="muted">'+(r.reason?.name==='AbortError'?'Zeitüberschreitung bei der Wetter-API.':'Netzwerk- oder API-Fehler. Bitte später erneut versuchen.')+'</p></article>').join('');
+  const failures=results.filter(r=>r.status==='rejected').length;
+  status.textContent=failures===0?'Aktualisiert um '+new Intl.DateTimeFormat('de-AT',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Vienna'}).format(new Date())+' Uhr':failures===2?'Beide API-Anfragen fehlgeschlagen. Internetverbindung oder Open-Meteo prüfen.':'Ein Ort konnte nicht geladen werden.';
+  if(failures)console.warn('Wetter-API-Fehler:',results.filter(r=>r.status==='rejected').map(r=>r.reason));
+ }finally{refresh.disabled=false;}
+}
+refresh.addEventListener('click',load);load();setInterval(()=>{if(!document.hidden)load()},900000);
+</script>
+</body></html>
