@@ -8,14 +8,14 @@
 </style>
 </head>
 <body>
-<header><h1>🚲 Wien → Brünn</h1><p class="sub">Wetter für die Radtour · 4.–5. November 2026</p></header>
+<header><h1>🚲 Wien → Brünn</h1><p class="sub">Wetter für die Radtour · 5. -6. November 2026</p></header>
 <div class="toolbar"><button id="refresh" type="button">↻ Wetter aktualisieren</button><span id="status" role="status" aria-live="polite">Lade Wetterdaten …</span></div>
 <main class="grid" id="cards"></main>
 <footer>Daten: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a> · Aktualisierung alle 15 Minuten · Uhrzeiten in Wien/Brünn (Europe/Vienna). Wetterprognosen sind nur bis zu 16 Tage im Voraus verfügbar.</footer>
 <script>
 'use strict';
 const cities=[{name:'Wien',lat:48.2082,lon:16.3738},{name:'Brünn',lat:49.1951,lon:16.6068}];
-const dates=['2026-11-04','2026-11-05'];
+const dates=['2026-11-05','2026-11-06'];
 const labels={0:'Klar',1:'Überwiegend klar',2:'Teilweise bewölkt',3:'Bewölkt',45:'Nebel',48:'Reifnebel',51:'Leichter Nieselregen',53:'Nieselregen',55:'Starker Nieselregen',56:'Gefrierender Nieselregen',57:'Starker gefrierender Nieselregen',61:'Leichter Regen',63:'Regen',65:'Starker Regen',66:'Gefrierender Regen',67:'Starker gefrierender Regen',71:'Leichter Schneefall',73:'Schneefall',75:'Starker Schneefall',77:'Schneegriesel',80:'Leichte Regenschauer',81:'Regenschauer',82:'Starke Regenschauer',85:'Schneeschauer',86:'Starke Schneeschauer',95:'Gewitter',96:'Gewitter mit Hagel',99:'Starkes Gewitter mit Hagel'};
 const cards=document.getElementById('cards'),status=document.getElementById('status'),refresh=document.getElementById('refresh');
 const fmt=(n,digits=0)=>n==null||!Number.isFinite(Number(n))?'–':new Intl.NumberFormat('de-AT',{maximumFractionDigits:digits,minimumFractionDigits:digits}).format(Number(n));
